@@ -34,6 +34,12 @@
 
 		<dependency>
 			<groupId>com.zsmartsystems.zigbee</groupId>
+			<artifactId>com.zsmartsystems.zigbee.dongle.zstack</artifactId>
+			<version>1.1.11-SNAPSHOT</version>
+		</dependency>
+
+		<dependency>
+			<groupId>com.zsmartsystems.zigbee</groupId>
 			<artifactId>com.zsmartsystems.zigbee.dongle.xbee</artifactId>
 			<version>1.2.2-SNAPSHOT</version>
 		</dependency>
@@ -72,6 +78,12 @@
 			<groupId>com.zsmartsystems.zigbee</groupId>
 			<artifactId>com.zsmartsystems.zigbee.console.telegesis</artifactId>
 			<version>1.2.2-SNAPSHOT</version>
+		</dependency>
+
+		<dependency>
+			<groupId>com.zsmartsystems.zigbee</groupId>
+			<artifactId>com.zsmartsystems.zigbee.console.zstack</artifactId>
+			<version>1.1.11-SNAPSHOT</version>
 		</dependency>
 
 		<dependency>
