@@ -26,6 +26,7 @@ import com.zsmartsystems.zigbee.dongle.ember.ezsp.command.EzspSetExtendedTimeout
 import com.zsmartsystems.zigbee.dongle.ember.ezsp.command.EzspSetExtendedTimeoutResponse;
 import com.zsmartsystems.zigbee.zdo.field.NodeDescriptor;
 import com.zsmartsystems.zigbee.zdo.field.NodeDescriptor.MacCapabilitiesType;
+import com.zsmartsystems.zigbee.dongle.ember.ezsp.EzspFrameResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -678,7 +679,7 @@ public class ZigBeeDongleEzsp implements ZigBeeTransportTransmit, ZigBeeTranspor
         }
         lastSendCommand = System.currentTimeMillis();
 
-        EzspTransaction transaction;
+        EzspTransaction<? extends EzspFrameResponse> transaction;
 
         EmberApsFrame emberApsFrame = new EmberApsFrame();
         emberApsFrame.setClusterId(apsFrame.getCluster());
@@ -722,7 +723,7 @@ public class ZigBeeDongleEzsp implements ZigBeeTransportTransmit, ZigBeeTranspor
                 }
             }
 
-            transaction = new EzspSingleResponseTransaction(emberUnicast, EzspSendUnicastResponse.class);
+            transaction = new EzspSingleResponseTransaction<>(emberUnicast, EzspSendUnicastResponse.class);
         } else if (apsFrame.getAddressMode() == ZigBeeNwkAddressMode.DEVICE
                 && ZigBeeBroadcastDestination.isBroadcast(apsFrame.getDestinationAddress())) {
 
@@ -734,7 +735,7 @@ public class ZigBeeDongleEzsp implements ZigBeeTransportTransmit, ZigBeeTranspor
             emberBroadcast.setRadius(apsFrame.getRadius());
             emberBroadcast.setMessageContents(apsFrame.getPayload());
 
-            transaction = new EzspSingleResponseTransaction(emberBroadcast, EzspSendBroadcastResponse.class);
+            transaction = new EzspSingleResponseTransaction<>(emberBroadcast, EzspSendBroadcastResponse.class);
         } else if (apsFrame.getAddressMode() == ZigBeeNwkAddressMode.GROUP) {
             emberApsFrame.setGroupId(apsFrame.getGroupAddress());
 
@@ -745,7 +746,7 @@ public class ZigBeeDongleEzsp implements ZigBeeTransportTransmit, ZigBeeTranspor
             emberMulticast.setMessageTag(msgTag);
             emberMulticast.setMessageContents(apsFrame.getPayload());
 
-            transaction = new EzspSingleResponseTransaction(emberMulticast, EzspSendMulticastResponse.class);
+            transaction = new EzspSingleResponseTransaction<>(emberMulticast, EzspSendMulticastResponse.class);
         } else {
             logger.debug("EZSP message not sent: {}", apsFrame);
             // ZigBeeGroupAddress groupAddress = (ZigBeeGroupAddress) zclCommand.getDestinationAddress();
@@ -1263,10 +1264,10 @@ public class ZigBeeDongleEzsp implements ZigBeeTransportTransmit, ZigBeeTranspor
             // Send the bootload command, but ignore the response since there doesn't seem to be one
             // despite what the documentation seems to indicate
             EzspLaunchStandaloneBootloaderRequest bootloadCommand = new EzspLaunchStandaloneBootloaderRequest();
-            EzspTransaction bootloadTransaction = frameHandler.sendEzspTransaction(
-                    new EzspSingleResponseTransaction(bootloadCommand, EzspLaunchStandaloneBootloaderResponse.class));
-            EzspLaunchStandaloneBootloaderResponse bootloadResponse = (EzspLaunchStandaloneBootloaderResponse) bootloadTransaction
-                    .getResponse();
+            EzspTransaction<EzspLaunchStandaloneBootloaderResponse> bootloadTransaction = frameHandler
+                    .sendEzspTransaction(new EzspSingleResponseTransaction<>(bootloadCommand,
+                            EzspLaunchStandaloneBootloaderResponse.class));
+            EzspLaunchStandaloneBootloaderResponse bootloadResponse = bootloadTransaction.getResponse();
             logger.debug(bootloadResponse.toString());
             logger.debug("EZSP bootloadResponse {}", bootloadResponse.getStatus());
 
@@ -1335,10 +1336,9 @@ public class ZigBeeDongleEzsp implements ZigBeeTransportTransmit, ZigBeeTranspor
                 break;
         }
 
-        EzspTransaction concentratorTransaction = frameHandler.sendEzspTransaction(
-                new EzspSingleResponseTransaction(concentratorRequest, EzspSetConcentratorResponse.class));
-        EzspSetConcentratorResponse concentratorResponse = (EzspSetConcentratorResponse) concentratorTransaction
-                .getResponse();
+        EzspTransaction<EzspSetConcentratorResponse> concentratorTransaction = frameHandler.sendEzspTransaction(
+                new EzspSingleResponseTransaction<>(concentratorRequest, EzspSetConcentratorResponse.class));
+        EzspSetConcentratorResponse concentratorResponse = concentratorTransaction.getResponse();
         logger.debug(concentratorResponse.toString());
 
         if (concentratorResponse.getStatus() == EzspStatus.EZSP_SUCCESS) {
