@@ -12,7 +12,9 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.Future;
 
+import com.zsmartsystems.zigbee.dongle.ember.ezsp.EzspFrameRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -145,7 +147,8 @@ public class EmberNcp {
     }
 
     /**
-     * Returns the {@link EmberStatus} from the last request. If the request did not provide a status, null is returned.
+     * Returns the {@link EmberStatus} from the last request. If the request did not provide a status, null is
+     * returned.
      *
      * @return {@link EmberStatus}
      */
@@ -154,10 +157,22 @@ public class EmberNcp {
     }
 
     /**
+     * Sends a single-response EzspRequest asynchronously
+     *
+     * @param <R> Response Type
+     */
+    public <R extends EzspFrame> Future<R> sendAsyncRequest(EzspFrameRequest request, Class<R> responseClass) {
+        EzspSingleResponseTransaction transaction = new EzspSingleResponseTransaction(request, responseClass);
+        final Future<R> ezspFrameFuture = (Future<R>) protocolHandler.sendEzspRequestAsync(transaction);
+        return ezspFrameFuture;
+    }
+
+    /**
      * The command allows the Host to specify the desired EZSP version and must be sent before any other command. The
      * response provides information about the firmware running on the NCP.
      *
      * @param desiredVersion the requested version we support
+     *
      * @return the {@link EzspVersionResponse}
      */
     public EzspVersionResponse getVersion(int desiredVersion) {

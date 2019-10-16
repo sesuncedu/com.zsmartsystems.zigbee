@@ -7,8 +7,16 @@
  */
 package com.zsmartsystems.zigbee.dongle.ember;
 
+import java.util.concurrent.Future;
+import java.util.concurrent.FutureTask;
+
+import com.sun.org.apache.xpath.internal.Arg;
+import com.zsmartsystems.zigbee.dongle.ember.ezsp.EzspFrameRequest;
+import com.zsmartsystems.zigbee.dongle.ember.ezsp.command.EzspGetConfigurationValueRequest;
+import com.zsmartsystems.zigbee.dongle.ember.ezsp.command.EzspGetConfigurationValueResponse;
 import org.junit.Before;
 import org.mockito.ArgumentMatchers;
+import org.mockito.Mock;
 import org.mockito.Mockito;
 
 import com.zsmartsystems.zigbee.IeeeAddress;
@@ -52,6 +60,14 @@ public class ZigBeeTransportTransmitTest extends ZigBeeTransportTransmitAbstract
         Mockito.when(ncp.setRadioPower(ArgumentMatchers.anyInt())).thenReturn(EmberStatus.EMBER_SUCCESS);
         Mockito.when(ncp.getNwkAddress()).thenReturn(Integer.valueOf(0));
         Mockito.when(ncp.getIeeeAddress()).thenReturn(new IeeeAddress("1234567890ABCDEF"));
+
+        EzspGetConfigurationValueResponse rsp = Mockito.mock(EzspGetConfigurationValueResponse.class);
+        Mockito.when(rsp.getStatus()).thenReturn(EzspStatus.EZSP_SUCCESS);
+        Mockito.when(rsp.getValue()).thenReturn(3);
+        Future<EzspGetConfigurationValueResponse> fut = Mockito.mock(Future.class);
+        Mockito.when(fut.get()).thenReturn(rsp);
+        Mockito.when(ncp.sendAsyncRequest(ArgumentMatchers.any(EzspGetConfigurationValueRequest.class),
+                ArgumentMatchers.eq(EzspGetConfigurationValueResponse.class))).thenReturn(fut);
 
         ZigBeePort port = Mockito.mock(ZigBeePort.class);
         Mockito.when(port.open()).thenReturn(Boolean.TRUE);
