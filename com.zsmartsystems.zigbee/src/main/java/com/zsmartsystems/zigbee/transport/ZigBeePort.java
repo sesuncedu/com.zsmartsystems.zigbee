@@ -59,6 +59,20 @@ public interface ZigBeePort {
     void write(int value);
 
     /**
+     * Write a byte array to a serial port.
+     */
+    default int write(byte buf[]) {
+        return write(buf, 0, buf.length);
+    }
+
+    default int write(byte buf[], int offset, int length) {
+        for (int i = offset; i < offset + length; i++) {
+            write(buf[i] & 0xff);
+        }
+        return length;
+    }
+
+    /**
      * Read a value from the port. This should block until a byte is available.
      *
      * @return the data byte (integer) read from the port
