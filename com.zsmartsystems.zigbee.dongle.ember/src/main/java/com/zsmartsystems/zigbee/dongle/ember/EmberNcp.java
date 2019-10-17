@@ -13,6 +13,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import com.zsmartsystems.zigbee.ZigBeeBroadcastDestination;
+import com.zsmartsystems.zigbee.dongle.ember.ezsp.EmberException;
+import com.zsmartsystems.zigbee.dongle.ember.ezsp.EzspException;
+import com.zsmartsystems.zigbee.dongle.ember.ezsp.EzspTransactionException;
+import com.zsmartsystems.zigbee.dongle.ember.ezsp.command.EzspEnergyScanRequestRequest;
+import com.zsmartsystems.zigbee.dongle.ember.ezsp.command.EzspEnergyScanRequestResponse;
+import com.zsmartsystems.zigbee.dongle.ember.ezsp.command.EzspSetRadioChannelRequest;
+import com.zsmartsystems.zigbee.dongle.ember.ezsp.command.EzspSetRadioChannelResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -869,6 +877,40 @@ public class EmberNcp {
         lastStatus = scanCompleteResponse.getStatus();
 
         return channels;
+    }
+
+    public void changeActiveNetworkChannel(int channel) throws InterruptedException, EzspException {
+        broadcastChannelChangeRequest(channel);
+        Thread.sleep(10 * 1000L);
+        setRadioChannel(channel);
+
+    }
+
+    private void broadcastChannelChangeRequest(int channel) throws EzspTransactionException {
+        EzspEnergyScanRequestRequest request = new EzspEnergyScanRequestRequest();
+        request.setTarget(ZigBeeBroadcastDestination.BROADCAST_RX_ON.getKey());
+        request.setScanDuration(0xfe);
+        request.setScanCount(5);
+        request.setScanChannels(1 << channel);
+        EzspSingleResponseTransaction transaction = new EzspSingleResponseTransaction(request,
+                EzspEnergyScanRequestResponse.class);
+        protocolHandler.sendEzspTransaction(transaction);
+        EzspStatus status = ((EzspEnergyScanRequestResponse) transaction.getResponse()).getStatus();
+        if (status != EzspStatus.EZSP_SUCCESS) {
+            throw new EzspTransactionException(status);
+        }
+    }
+
+    private void setRadioChannel(int channel) throws EmberException {
+        EzspSetRadioChannelRequest request = new EzspSetRadioChannelRequest();
+        request.setChannel(channel);
+        EzspTransaction transaction = protocolHandler.sendEzspTransaction(
+                new EzspSingleResponseTransaction(request, EzspSetRadioChannelResponse.class));
+        EzspSetRadioChannelResponse response = (EzspSetRadioChannelResponse) transaction.getResponse();
+        if (response.getStatus() != EmberStatus.EMBER_SUCCESS) {
+            throw new EmberException(response.getStatus());
+        }
+
     }
 
     private String intArrayToString(int[] payload) {
