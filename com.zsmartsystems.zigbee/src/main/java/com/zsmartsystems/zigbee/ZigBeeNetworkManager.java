@@ -287,6 +287,7 @@ public class ZigBeeNetworkManager implements ZigBeeNetwork, ZigBeeTransportRecei
         transactionManager = new ZigBeeTransactionManager(this);
     }
 
+
     /**
      * Set a state {@link ZigBeeNetworkDataStore}. This will allow saving and restoring the network.
      *
@@ -1708,6 +1709,15 @@ public class ZigBeeNetworkManager implements ZigBeeNetwork, ZigBeeTransportRecei
         command.setSourceAddress(new ZigBeeEndpointAddress(localNwkAddress));
     }
 
+    /**
+     * get the transaction manager used by this NetworkManager
+     *
+     * @return the transaction manager
+     */
+    public ZigBeeTransactionManager getTransactionManager() {
+        return transactionManager;
+    }
+
     @Override
     public void sendTransaction(ZigBeeCommand command) {
         finaliseOutgoingCommand(command);
@@ -1728,4 +1738,5 @@ public class ZigBeeNetworkManager implements ZigBeeNetwork, ZigBeeTransportRecei
         }
         transactionManager.receiveCommandState(msgTag, state);
     }
+
 }
