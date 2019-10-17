@@ -259,6 +259,7 @@ public class ZigBeeDongleEzsp implements ZigBeeTransportTransmit, ZigBeeTranspor
      */
     Map<Integer, Integer> fragmentationApsCounters = new HashMap<>();
     private ZigBeeNetworkManager networkManager;
+    private int maxOutstandingApsMessages = 20;
 
     /**
      * Create a {@link ZigBeeDongleEzsp} with the default ASH2 frame handler
@@ -294,7 +295,7 @@ public class ZigBeeDongleEzsp implements ZigBeeTransportTransmit, ZigBeeTranspor
         stackConfiguration.put(EzspConfigId.EZSP_CONFIG_APPLICATION_ZDO_FLAGS,
                 EmberZdoConfigurationFlags.EMBER_APP_RECEIVES_SUPPORTED_ZDO_REQUESTS.getKey());
         stackConfiguration.put(EzspConfigId.EZSP_CONFIG_MAX_END_DEVICE_CHILDREN, 16);
-        stackConfiguration.put(EzspConfigId.EZSP_CONFIG_APS_UNICAST_MESSAGE_COUNT, 10);
+        stackConfiguration.put(EzspConfigId.EZSP_CONFIG_APS_UNICAST_MESSAGE_COUNT, maxOutstandingApsMessages);
         stackConfiguration.put(EzspConfigId.EZSP_CONFIG_BROADCAST_TABLE_SIZE, 15);
         stackConfiguration.put(EzspConfigId.EZSP_CONFIG_NEIGHBOR_TABLE_SIZE, 16);
         stackConfiguration.put(EzspConfigId.EZSP_CONFIG_FRAGMENT_WINDOW_SIZE, 1);
@@ -426,7 +427,17 @@ public class ZigBeeDongleEzsp implements ZigBeeTransportTransmit, ZigBeeTranspor
         for (Entry<EzspConfigId, Integer> config : configuration.entrySet()) {
             logger.debug("Configuration state {} = {}", config.getKey(), config.getValue());
         }
-
+        final int actualMaxOutstanding = configuration.get(EzspConfigId.EZSP_CONFIG_APS_UNICAST_MESSAGE_COUNT);
+        if (maxOutstandingApsMessages != actualMaxOutstanding) {
+            logger.debug("Unable to set maximum outstanding aps transactions to {}; defaulting to  {}",
+                    maxOutstandingApsMessages, actualMaxOutstanding);
+            this.maxOutstandingApsMessages = actualMaxOutstanding;
+        }
+        if (networkManager != null && networkManager.getTransactionManager() != null) {
+            networkManager.getTransactionManager().setMaxOutstandingTransactions(this.maxOutstandingApsMessages);
+            final int maxSleepyTransactions = Math.max(1, this.maxOutstandingApsMessages - 2);
+            networkManager.getTransactionManager().setMaxSleepyTransactions(maxSleepyTransactions);
+        }
         stackConfigurer.setPolicy(stackPolicies);
         policies = stackConfigurer.getPolicy(stackPolicies.keySet());
         for (Entry<EzspPolicyId, EzspDecisionId> policy : policies.entrySet()) {
