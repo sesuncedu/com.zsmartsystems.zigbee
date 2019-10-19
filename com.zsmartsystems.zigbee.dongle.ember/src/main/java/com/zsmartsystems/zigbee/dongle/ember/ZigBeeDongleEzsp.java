@@ -22,6 +22,7 @@ import java.util.concurrent.TimeUnit;
 
 import com.zsmartsystems.zigbee.ZigBeeNode;
 import com.zsmartsystems.zigbee.dongle.ember.ezsp.command.EzspGetExtendedTimeoutResponse;
+import com.zsmartsystems.zigbee.dongle.ember.ezsp.command.EzspNetworkStateResponse;
 import com.zsmartsystems.zigbee.dongle.ember.ezsp.command.EzspSetExtendedTimeoutRequest;
 import com.zsmartsystems.zigbee.dongle.ember.ezsp.command.EzspSetExtendedTimeoutResponse;
 import com.zsmartsystems.zigbee.zdo.field.NodeDescriptor;
@@ -556,6 +557,9 @@ public class ZigBeeDongleEzsp implements ZigBeeTransportTransmit, ZigBeeTranspor
         }
 
         pollingTimer = executorService.scheduleWithFixedDelay(new Runnable() {
+
+            private EzspSingleResponseTransaction<EzspNetworkStateResponse> pollTransaction;
+
             @Override
             public void run() {
                 // Don't poll the state if the network is down
@@ -564,7 +568,9 @@ public class ZigBeeDongleEzsp implements ZigBeeTransportTransmit, ZigBeeTranspor
                     return;
                 }
                 // Don't wait for the response. This is running in a single thread scheduler
-                frameHandler.queueFrame(new EzspNetworkStateRequest());
+                pollTransaction = new EzspSingleResponseTransaction<>(new EzspNetworkStateRequest(),
+                        EzspNetworkStateResponse.class);
+                frameHandler.sendEzspRequestAsync(pollTransaction);
             }
         }, pollRate, pollRate, TimeUnit.MILLISECONDS);
     }

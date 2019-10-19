@@ -442,19 +442,19 @@ public class ZigBeeDongleEzspTest {
         TestUtilities.setField(ZigBeeDongleEzsp.class, dongle, "executorService", executorService);
 
         TestUtilities.invokeMethod(ZigBeeDongleEzsp.class, dongle, "scheduleNetworkStatePolling");
-        Mockito.verify(frameHandler, Mockito.timeout(TIMEOUT).times(0))
-                .queueFrame(ArgumentMatchers.any(EzspFrameRequest.class));
+        Mockito.verify(frameHandler, Mockito.timeout(TIMEOUT).times(0)).queueFrame(
+                ArgumentMatchers.any(EzspFrameRequest.class));
 
         TestUtilities.setField(ZigBeeDongleEzsp.class, dongle, "lastSendCommand", Long.MAX_VALUE - 1);
         TestUtilities.setField(ZigBeeDongleEzsp.class, dongle, "networkStateUp", true);
         TestUtilities.invokeMethod(ZigBeeDongleEzsp.class, dongle, "scheduleNetworkStatePolling");
-        Mockito.verify(frameHandler, Mockito.timeout(TIMEOUT).times(0))
-                .queueFrame(ArgumentMatchers.any(EzspFrameRequest.class));
+        Mockito.verify(frameHandler, Mockito.timeout(TIMEOUT).times(0)).queueFrame(
+                ArgumentMatchers.any(EzspFrameRequest.class));
 
         TestUtilities.setField(ZigBeeDongleEzsp.class, dongle, "lastSendCommand", 0);
         TestUtilities.invokeMethod(ZigBeeDongleEzsp.class, dongle, "scheduleNetworkStatePolling");
-        Mockito.verify(frameHandler, Mockito.timeout(TIMEOUT).atLeast(1))
-                .queueFrame(ArgumentMatchers.any(EzspFrameRequest.class));
+        Mockito.verify(frameHandler, Mockito.timeout(TIMEOUT).atLeast(1)).sendEzspRequestAsync(
+                ArgumentMatchers.any(EzspTransaction.class));
 
         dongle.handlePacket(new EzspNetworkStateRequest());
     }
