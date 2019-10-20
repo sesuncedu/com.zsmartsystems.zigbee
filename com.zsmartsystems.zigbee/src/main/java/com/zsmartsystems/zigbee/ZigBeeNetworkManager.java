@@ -1103,7 +1103,7 @@ public class ZigBeeNetworkManager implements ZigBeeNetwork, ZigBeeTransportRecei
             NotificationService.execute(new Runnable() {
                 @Override
                 public void run() {
-                    setNetworkStateRunnable(state);
+                    setNetworkStateOnline();
                 }
             });
 
@@ -1120,20 +1120,15 @@ public class ZigBeeNetworkManager implements ZigBeeNetwork, ZigBeeTransportRecei
         }
     }
 
-    private void setNetworkStateRunnable(final ZigBeeNetworkState state) {
+    private void setNetworkStateOnline() {
         synchronized (this) {
-            networkState = state;
-
-            logger.debug("Network state is updated to {}", state);
+            logger.debug("Network state ONLINE process running");
 
             localNwkAddress = transport.getNwkAddress();
             localIeeeAddress = transport.getIeeeAddress();
 
             // Make sure that we know the local node, and that the network address is correct.
             addLocalNode();
-
-            // Globally update the state
-            networkState = state;
 
             // Disable JOIN mode if we are the coordinator.
             // This should be disabled by default (at least in ZigBee 3.0) but some older stacks may
@@ -1164,7 +1159,7 @@ public class ZigBeeNetworkManager implements ZigBeeNetwork, ZigBeeTransportRecei
             NotificationService.execute(new Runnable() {
                 @Override
                 public void run() {
-                    stateListener.networkStateUpdated(state);
+                    stateListener.networkStateUpdated(ZigBeeNetworkState.ONLINE);
                 }
             });
         }
@@ -1450,7 +1445,8 @@ public class ZigBeeNetworkManager implements ZigBeeNetwork, ZigBeeTransportRecei
             return;
         }
 
-        logger.debug("{}: Updating node NWK={}", node.getIeeeAddress(), node.getNetworkAddress());
+        logger.debug("{}: Updating node NWK={}", node.getIeeeAddress(),
+                String.format("%04X", node.getNetworkAddress()));
 
         synchronized (networkNodes) {
             // Don't add if the node is already known
@@ -1515,7 +1511,7 @@ public class ZigBeeNetworkManager implements ZigBeeNetwork, ZigBeeTransportRecei
             sendNodeAdded = true;
         } else if (!currentNode.isDiscovered() && !currentNode.getIeeeAddress().equals(localIeeeAddress)) {
             logger.debug("{}: Node {} discovery is not complete - not sending nodeUpdated notification",
-                    node.getIeeeAddress(), node.getNetworkAddress());
+                    node.getIeeeAddress(), String.format("%04X", node.getNetworkAddress()));
             return;
         } else {
             sendNodeAdded = false;
