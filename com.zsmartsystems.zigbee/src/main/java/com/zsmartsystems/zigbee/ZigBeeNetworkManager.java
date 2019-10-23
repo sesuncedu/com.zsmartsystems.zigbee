@@ -148,6 +148,7 @@ public class ZigBeeNetworkManager implements ZigBeeNetwork, ZigBeeTransportRecei
      * The groups in the ZigBee network.
      */
     private final Map<Integer, ZigBeeGroupAddress> networkGroups = new TreeMap<>();
+    private final ZigBeeNetworkChannelManager networkChannelManager;
 
     /**
      * The node listeners of the ZigBee network. Registered listeners will be
@@ -285,6 +286,7 @@ public class ZigBeeNetworkManager implements ZigBeeNetwork, ZigBeeTransportRecei
         transport.setZigBeeNetworkManager(this);
         apsDataEntity = new ApsDataEntity(transport);
         transactionManager = new ZigBeeTransactionManager(this);
+        this.networkChannelManager = new ZigBeeNetworkChannelManager(this);
     }
 
 
@@ -1405,7 +1407,12 @@ public class ZigBeeNetworkManager implements ZigBeeNetwork, ZigBeeTransportRecei
         if (networkDiscoverer == null) {
             return;
         }
-        networkDiscoverer.rediscoverNode(address);
+        Integer oldAddress = null;
+        ZigBeeNode node = getNode(address);
+        if (node != null) {
+            oldAddress = node.getNetworkAddress();
+        }
+        networkDiscoverer.rediscoverNode(address, oldAddress);
     }
 
     /**

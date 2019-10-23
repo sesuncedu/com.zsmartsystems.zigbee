@@ -15,13 +15,14 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import com.zsmartsystems.zigbee.ZigBeeNode;
-import com.zsmartsystems.zigbee.dongle.ember.ezsp.command.EzspGetExtendedTimeoutResponse;
 import com.zsmartsystems.zigbee.dongle.ember.ezsp.command.EzspNetworkStateResponse;
 import com.zsmartsystems.zigbee.dongle.ember.ezsp.command.EzspSetExtendedTimeoutRequest;
 import com.zsmartsystems.zigbee.dongle.ember.ezsp.command.EzspSetExtendedTimeoutResponse;
@@ -296,12 +297,12 @@ public class ZigBeeDongleEzsp implements ZigBeeTransportTransmit, ZigBeeTranspor
         stackConfiguration.put(EzspConfigId.EZSP_CONFIG_APPLICATION_ZDO_FLAGS,
                 EmberZdoConfigurationFlags.EMBER_APP_RECEIVES_SUPPORTED_ZDO_REQUESTS.getKey());
         stackConfiguration.put(EzspConfigId.EZSP_CONFIG_MAX_END_DEVICE_CHILDREN, 16);
-        stackConfiguration.put(EzspConfigId.EZSP_CONFIG_APS_UNICAST_MESSAGE_COUNT, maxOutstandingApsMessages);
         stackConfiguration.put(EzspConfigId.EZSP_CONFIG_BROADCAST_TABLE_SIZE, 15);
         stackConfiguration.put(EzspConfigId.EZSP_CONFIG_NEIGHBOR_TABLE_SIZE, 16);
         stackConfiguration.put(EzspConfigId.EZSP_CONFIG_FRAGMENT_WINDOW_SIZE, 1);
         stackConfiguration.put(EzspConfigId.EZSP_CONFIG_FRAGMENT_DELAY_MS, 50);
         stackConfiguration.put(EzspConfigId.EZSP_CONFIG_PACKET_BUFFER_COUNT, 255);
+        stackConfiguration.put(EzspConfigId.EZSP_CONFIG_APS_UNICAST_MESSAGE_COUNT, maxOutstandingApsMessages);
 
         // Define the default policies
         stackPolicies = new TreeMap<EzspPolicyId, EzspDecisionId>();
@@ -595,19 +596,47 @@ public class ZigBeeDongleEzsp implements ZigBeeTransportTransmit, ZigBeeTranspor
 
         pollingTimer = executorService.scheduleWithFixedDelay(new Runnable() {
 
+            private Future<EzspNetworkStateResponse> responseFuture;
             private EzspSingleResponseTransaction<EzspNetworkStateResponse> pollTransaction;
 
             @Override
             public void run() {
+
                 // Don't poll the state if the network is down
                 // or we've sent a command to the dongle within the pollRate
                 if (!networkStateUp || (lastSendCommand + pollRate > System.currentTimeMillis())) {
                     return;
                 }
+                if (responseFuture != null) {
+                    try {
+                        final EzspNetworkStateResponse ezspNetworkStateResponse = responseFuture.get(0,
+                                TimeUnit.MILLISECONDS);
+                        if (logger.isTraceEnabled()) {
+                            logger.trace("last status response was {} - future {}", ezspNetworkStateResponse,
+                                    toHex(this.responseFuture));
+                        }
+                    } catch (InterruptedException e) {
+                        logger.debug("get interruupted: the future is cancelled? {} Not done? {}",
+                                responseFuture.isCancelled(), responseFuture.isDone());
+                        responseFuture.cancel(true);
+                        Thread.currentThread().interrupt();
+                        return;
+                    } catch (ExecutionException e) {
+                        logger.debug("Response check Caught Exception", e);
+                    } catch (TimeoutException e) {
+                        logger.debug("network state poll result not ready", e);
+                    } finally {
+                        responseFuture = null;
+                    }
+                }
                 // Don't wait for the response. This is running in a single thread scheduler
                 pollTransaction = new EzspSingleResponseTransaction<>(new EzspNetworkStateRequest(),
                         EzspNetworkStateResponse.class);
-                frameHandler.sendEzspRequestAsync(pollTransaction);
+                responseFuture = frameHandler.sendEzspRequestAsync(pollTransaction);
+            }
+
+            private String toHex(Object o) {
+                return String.format("%x", System.identityHashCode(o));
             }
         }, pollRate, pollRate, TimeUnit.MILLISECONDS);
     }
@@ -815,6 +844,8 @@ public class ZigBeeDongleEzsp implements ZigBeeTransportTransmit, ZigBeeTranspor
                 // If there was an error, then we let the system know we've failed already!
                 if (status == EmberStatus.EMBER_SUCCESS) {
                     return;
+                } else {
+                    logger.debug("failure - {} -> {}", transaction.getRequest(), transaction.getResponse());
                 }
                 zigbeeTransportReceive.receiveCommandState(msgTag, ZigBeeTransportProgressState.TX_NAK);
             }
