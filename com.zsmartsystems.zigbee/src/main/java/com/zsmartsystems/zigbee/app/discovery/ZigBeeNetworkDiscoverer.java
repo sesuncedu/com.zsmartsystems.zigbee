@@ -252,12 +252,12 @@ public class ZigBeeNetworkDiscoverer implements ZigBeeCommandListener, ZigBeeAnn
     }
 
     /**
-     * Starts a discovery on a node. This will send a {@link NetworkAddressRequest} as a broadcast and will receive
-     * the response to trigger a full discovery.
+     * Starts a discovery on a node. This will send a {@link NetworkAddressRequest} as a broadcast and will receive the
+     * response to trigger a full discovery.
      *
      * @param ieeeAddress the {@link IeeeAddress} of the node to discover
      */
-    protected void rediscoverNode(final IeeeAddress ieeeAddress) {
+    protected void rediscoverNode(final IeeeAddress ieeeAddress, final Integer oldAddress) {
         if (!initialized) {
             logger.debug("NWK discovery task: can't perform rediscovery on {} until initialization complete.",
                     ieeeAddress);
@@ -274,16 +274,16 @@ public class ZigBeeNetworkDiscoverer implements ZigBeeCommandListener, ZigBeeAnn
                         if (Thread.currentThread().isInterrupted()) {
                             break;
                         }
-
-                        NetworkAddressRequest request = new NetworkAddressRequest();
-                        request.setIeeeAddr(ieeeAddress);
-                        request.setRequestType(0);
-                        request.setStartIndex(0);
-                        request.setDestinationAddress(
-                                new ZigBeeEndpointAddress(ZigBeeBroadcastDestination.BROADCAST_RX_ON.getKey()));
-                        CommandResult response = networkManager.sendTransaction(request, request).get();
-
-                        final NetworkAddressResponse nwkAddressResponse = response.getResponse();
+                        NetworkAddressResponse nwkAddressResponse = null;
+                        if (oldAddress != null) {
+                            nwkAddressResponse = requestNetworkAddress(oldAddress, ieeeAddress);
+                        }
+                        if (nwkAddressResponse == null || nwkAddressResponse.getStatus() != ZdoStatus.SUCCESS) {
+                            nwkAddressResponse = requestNetworkAddress(
+                                    ZigBeeBroadcastDestination.BROADCAST_RX_ON.getKey(), ieeeAddress);
+                        } else {
+                            logger.info("Got network address without broadcast {}", nwkAddressResponse);
+                        }
                         if (nwkAddressResponse != null && nwkAddressResponse.getStatus() == ZdoStatus.SUCCESS) {
                             addNode(nwkAddressResponse.getIeeeAddrRemoteDev(),
                                     nwkAddressResponse.getNwkAddrRemoteDev());
@@ -306,6 +306,20 @@ public class ZigBeeNetworkDiscoverer implements ZigBeeCommandListener, ZigBeeAnn
                 logger.debug("{}: NWK Discovery finishing node rediscovery after {} attempts", ieeeAddress, retries);
             }
         });
+    }
+
+    private NetworkAddressResponse requestNetworkAddress(int addressToAsk, IeeeAddress ieeeAddress)
+            throws InterruptedException, ExecutionException {
+        NetworkAddressRequest networkAddressRequest = new NetworkAddressRequest();
+        networkAddressRequest.setIeeeAddr(ieeeAddress);
+        networkAddressRequest.setRequestType(0);
+        networkAddressRequest.setStartIndex(0);
+        networkAddressRequest.setDestinationAddress(new ZigBeeEndpointAddress(addressToAsk));
+
+        CommandResult response = networkManager.sendTransaction(networkAddressRequest, networkAddressRequest).get();
+        final NetworkAddressResponse networkAddressResponse = (NetworkAddressResponse) response.getResponse();
+        logger.debug("{}: Node SVC Discovery: NetworkAddressRequest returned {}", ieeeAddress, networkAddressResponse);
+        return networkAddressResponse;
     }
 
     /**

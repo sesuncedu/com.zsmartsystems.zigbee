@@ -239,13 +239,17 @@ public class ZigBeeDiscoveryExtension
     }
 
     /**
-     * Starts a discovery on a node. This will send a {@link NetworkAddressRequest} as a broadcast and will receive
-     * the response to trigger a full discovery.
+     * Starts a discovery on a node. This will send a {@link NetworkAddressRequest} as a broadcast and will receive the
+     * response to trigger a full discovery.
      *
      * @param ieeeAddress the {@link IeeeAddress} of the node to discover
      */
     public void rediscoverNode(final IeeeAddress ieeeAddress) {
-        networkDiscoverer.rediscoverNode(ieeeAddress);
+        rediscoverNode(ieeeAddress, null);
+    }
+
+    public void rediscoverNode(final IeeeAddress ieeeAddress, Integer networkAddress) {
+        networkDiscoverer.rediscoverNode(ieeeAddress, networkAddress);
     }
 
     protected void startDiscovery(ZigBeeNode node) {

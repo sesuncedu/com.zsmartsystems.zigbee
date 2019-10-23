@@ -20,6 +20,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledFuture;
 
+import com.zsmartsystems.zigbee.IeeeAddress;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -284,34 +285,42 @@ public class ZigBeeNodeServiceDiscoverer {
      * Get node descriptor
      *
      * @return true if the message was processed ok
-     * @throws ExecutionException
-     * @throws InterruptedException
      */
     private boolean requestNetworkAddress() throws InterruptedException, ExecutionException {
+        NetworkAddressResponse networkAddressResponse = null;
+        if (node.getNetworkAddress() != null) {
+            networkAddressResponse = requestNetworkAddress(node.getNetworkAddress(), node.getIeeeAddress());
+        }
+        if (networkAddressResponse == null || networkAddressResponse.getStatus() != ZdoStatus.SUCCESS) {
+            networkAddressResponse = requestNetworkAddress(ZigBeeBroadcastDestination.BROADCAST_ALL_DEVICES.getKey(),
+                    node.getIeeeAddress());
+        } else {
+            logger.info("rechecked network address without broadcast, {} ", networkAddressResponse);
+        }
+        if (networkAddressResponse == null || networkAddressResponse.getStatus() != ZdoStatus.SUCCESS) {
+            return false;
+        }
+        if (updatedNode.setNetworkAddress(networkAddressResponse.getNwkAddrRemoteDev())) {
+            networkManager.updateNode(updatedNode);
+        }
+
+        return true;
+
+    }
+
+    private NetworkAddressResponse requestNetworkAddress(int addressToAsk, IeeeAddress ieeeAddress)
+            throws InterruptedException, ExecutionException {
         NetworkAddressRequest networkAddressRequest = new NetworkAddressRequest();
-        networkAddressRequest.setIeeeAddr(node.getIeeeAddress());
+        networkAddressRequest.setIeeeAddr(ieeeAddress);
         networkAddressRequest.setRequestType(0);
         networkAddressRequest.setStartIndex(0);
-        networkAddressRequest.setDestinationAddress(
-                new ZigBeeEndpointAddress(ZigBeeBroadcastDestination.BROADCAST_ALL_DEVICES.getKey()));
+        networkAddressRequest.setDestinationAddress(new ZigBeeEndpointAddress(addressToAsk));
 
         CommandResult response = networkManager.sendTransaction(networkAddressRequest, networkAddressRequest).get();
         final NetworkAddressResponse networkAddressResponse = (NetworkAddressResponse) response.getResponse();
         logger.debug("{}: Node SVC Discovery: NetworkAddressRequest returned {}", node.getIeeeAddress(),
                 networkAddressResponse);
-        if (networkAddressResponse == null) {
-            return false;
-        }
-
-        if (networkAddressResponse.getStatus() == ZdoStatus.SUCCESS) {
-            if (updatedNode.setNetworkAddress(networkAddressResponse.getNwkAddrRemoteDev())) {
-                networkManager.updateNode(updatedNode);
-            }
-
-            return true;
-        }
-
-        return false;
+        return networkAddressResponse;
     }
 
     /**

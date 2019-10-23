@@ -238,7 +238,7 @@ public class ZigBeeNetworkDiscovererTest {
         discoveryStartTime.put(1111, Long.MAX_VALUE);
         TestUtilities.setField(ZigBeeNetworkDiscoverer.class, discoverer, "initialized", true);
         TestUtilities.setField(ZigBeeNetworkDiscoverer.class, discoverer, "discoveryStartTime", discoveryStartTime);
-        discoverer.rediscoverNode(new IeeeAddress("1111111111111111"));
+        discoverer.rediscoverNode(new IeeeAddress("1111111111111111"), null);
 
         Mockito.verify(networkManager, Mockito.timeout(TIMEOUT).times(1)).updateNode(nodeCapture.capture());
 
