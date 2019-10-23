@@ -85,11 +85,11 @@ public class ZigBeeTransactionManager implements ZigBeeNetworkNodeListener {
     private final int MAX_SLEEPY_TRANSACTIONS = 5;
 
     private final int NODE_RETRIES = 2;
-    private final int NODE_TRANSACTIONS = 2;
+    private final int NODE_TRANSACTIONS = 3;
     private final int NODE_DELAY = 50;
 
     private final int SLEEPY_RETRIES = 2;
-    private final int SLEEPY_TRANSACTIONS = 1;
+    private final int SLEEPY_TRANSACTIONS = 3;
     private final int SLEEPY_DELAY = 50;
 
     private final int MCAST_RETRIES = 0;
@@ -690,6 +690,8 @@ public class ZigBeeTransactionManager implements ZigBeeNetworkNodeListener {
             }
 
             if (timeout > 0) {
+                logger.debug("have {} non-empty queues {} in-flight transactions (max {}), but sleeping for {}ms",
+                        outstandingQueues.size(), outstandingTransactions.size(), maxOutstandingTransactions, timeout);
                 startRequeueTimer(timeout);
             }
         }
