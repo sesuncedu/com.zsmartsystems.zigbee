@@ -1,5 +1,16 @@
 package com.zsmartsystems.zigbee;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.nio.file.CopyOption;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -8,7 +19,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import com.zsmartsystems.zigbee.transaction.ZigBeeTransaction;
 import com.zsmartsystems.zigbee.transaction.ZigBeeTransactionMatcher;
 import com.zsmartsystems.zigbee.zcl.ZclFieldDeserializer;
 import com.zsmartsystems.zigbee.zcl.ZclFieldSerializer;
@@ -90,16 +100,50 @@ class ZigBeeNetworkChannelManager {
         }
     }
 
-    private static abstract class BaseManagementNetworkUpdateRequest extends ZdoRequest {
+    void changeChannel(int channel) throws IOException, InterruptedException {
+        int nextId = getNextUpdateId();
+        ChangeChannelRequest req = new ChangeChannelRequest(channel, nextId);
+        req.setTransactionId(nextTid.incrementAndGet());
+        logger.info("Sending change channel request {}", req);
+        networkManager.sendTransaction(req);
+        Thread.sleep(10 * 1000);
+        networkManager.setZigBeeChannel(ZigBeeChannel.create(channel));
+
+    }
+
+    private int getNextUpdateId() throws IOException {
+        int nextId = 0;
+        Path oldUpdates = Paths.get("/tmp/channels.txt");
+        if (Files.exists(oldUpdates)) {
+            try (BufferedReader in = Files.newBufferedReader(oldUpdates)) {
+                String line = in.readLine();
+                int lastId = Integer.parseInt(line);
+                nextId = lastId + 1 & 0xff;
+            } catch (FileNotFoundException ignore) {
+            }
+        }
+        Path newUpdates = Files.createTempFile("new-channels", "txt");
+        try {
+            try (PrintWriter out = new PrintWriter(newUpdates.toFile())) {
+                out.println(nextId);
+            }
+            Files.move(newUpdates, oldUpdates, StandardCopyOption.ATOMIC_MOVE);
+        } finally {
+            Files.deleteIfExists(newUpdates);
+        }
+        return nextId;
+    }
+
+    private static abstract class AbstractMNURequest extends ZdoRequest {
 
         int channels;
         int scanDuration;
 
-        BaseManagementNetworkUpdateRequest() {
+        AbstractMNURequest() {
             clusterId = 0x0038;
         }
 
-        BaseManagementNetworkUpdateRequest(int target, int channels, int scanDuration) {
+        AbstractMNURequest(int target, int channels, int scanDuration) {
             this();
             this.setDestinationAddress(new ZigBeeEndpointAddress(target));
             this.channels = channels;
@@ -124,10 +168,10 @@ class ZigBeeNetworkChannelManager {
 
     }
 
-    private static abstract class BaseUpdateRequest extends BaseManagementNetworkUpdateRequest {
+    private static abstract class AbstractUpdateRequest extends AbstractMNURequest {
         int updateId;
 
-        public BaseUpdateRequest(int channelMask, int duration, int updateId) {
+        public AbstractUpdateRequest(int channelMask, int duration, int updateId) {
             super(ZigBeeBroadcastDestination.BROADCAST_RX_ON.getKey(), channelMask, duration);
             this.updateId = updateId;
         }
@@ -145,7 +189,7 @@ class ZigBeeNetworkChannelManager {
         }
     }
 
-    private static class ChannelScanRequest extends BaseManagementNetworkUpdateRequest {
+    private static class ChannelScanRequest extends AbstractMNURequest {
         int count;
 
         public ChannelScanRequest(int target, int channelMask, int duration, int count) {
@@ -170,7 +214,7 @@ class ZigBeeNetworkChannelManager {
 
         private static int durationToMillis(int duration) {
             int baseSuperframeDuration = 60 * 16;
-            float scanDurationInSymbols = baseSuperframeDuration << duration;
+            float scanDurationInSymbols = baseSuperframeDuration * (1 << duration + 1);
             float ms = scanDurationInSymbols / 62.5f;
             return Math.round(ms);
         }
@@ -186,7 +230,7 @@ class ZigBeeNetworkChannelManager {
         }
     }
 
-    private static class ChangeChannelRequest extends BaseUpdateRequest {
+    private static class ChangeChannelRequest extends AbstractUpdateRequest {
         public ChangeChannelRequest(int channel, int updateId) {
             super(channelToMask(channel), 0xfe, updateId);
         }
@@ -223,7 +267,7 @@ class ZigBeeNetworkChannelManager {
         }
     }
 
-    private static class UpdateNetworkManagerRequest extends BaseUpdateRequest {
+    private static class UpdateNetworkManagerRequest extends AbstractUpdateRequest {
 
         int managerAddress;
 
